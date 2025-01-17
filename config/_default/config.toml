@@ -1,5 +1,5 @@
 # Change baseurl before deploy
-baseurl = "https://demo.stack.jimmycai.com"
+baseurl = "https://github.com/Bruno8R/My-blog/"
 languageCode = "en-us"
 title = "Bruno de Barros Ricardo"
 theme = "hugo-theme-stack"
