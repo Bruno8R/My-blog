@@ -35,14 +35,14 @@ weight = 20
 [social.params]
 icon = "mail"
 
-#[[social]]
-#identifier = "linkedin"
-#name = "linkedin"
-#url = "https://www.linkedin.com/"
-#weight = 30
+[[social]]
+identifier = "linkedin"
+name = "linkedin"
+url = "https://www.linkedin.com/"
+weight = 30
 
-#[social.params]
-#icon = "brand-linkedin"
+[social.params]
+icon = "brand-linkedin"
 
 # [[social]]
 # identifier = "twitter"
