@@ -1,0 +1,53 @@
+# Configure main menu and social menu
+#[[main]]
+#identifier = "home"
+#name = "Home"
+#url = "/"
+#[main.params]
+#icon = "home"
+#newtab = true
+
+# [[main]]
+# weight = -95
+# identifier = "about_me"
+# name = "About Me"
+# url = "/about_me"
+
+# [main.params]
+# icon = "user"
+# newtab = false
+
+[[social]]
+identifier = "github"
+name = "GitHub"
+url = "https://github.com/RenatoMassaro"
+weight = 10
+
+[social.params]
+icon = "brand-github"
+
+[[social]]
+identifier = "contact"
+name = "Email"
+url = "mailto:r@ena.to"
+weight = 20
+
+[social.params]
+icon = "mail"
+
+[[social]]
+identifier = "linkedin"
+name = "linkedin"
+url = "https://www.linkedin.com/"
+weight = 30
+
+[social.params]
+icon = "brand-linkedin"
+
+# [[social]]
+# identifier = "twitter"
+# name = "Twitter"
+# url = "https://twitter.com/RenatoMassaro"
+
+# [social.params]
+# icon = "brand-twitter"

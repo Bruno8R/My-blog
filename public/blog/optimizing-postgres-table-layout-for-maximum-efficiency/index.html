@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Introduction\rWhen modeling a Postgres database, you probably don&rsquo;t give much thought to the order of columns in your tables. After all, it seems like the kind of thing that wouldn&rsquo;t affect storage or performance. But what if I told you that simply reordering your columns could reduce the size of your tables and indexes by 20%? This isn&rsquo;t some obscure database trick — it&rsquo;s a direct result of how Postgres aligns data on disk.\n">
+<title>Optimizing Postgres table layout for maximum efficiency</title>
+
+<link rel='canonical' href='http://localhost:1313/blog/optimizing-postgres-table-layout-for-maximum-efficiency/'>
+
+<link rel="stylesheet" href="/scss/style.min.b9c8156d464c343bdacaf14a871581fb94cbbdb9dd5cbce4ba017361187cc930.css"><meta property='og:title' content="Optimizing Postgres table layout for maximum efficiency">
+<meta property='og:description' content="Introduction\rWhen modeling a Postgres database, you probably don&rsquo;t give much thought to the order of columns in your tables. After all, it seems like the kind of thing that wouldn&rsquo;t affect storage or performance. But what if I told you that simply reordering your columns could reduce the size of your tables and indexes by 20%? This isn&rsquo;t some obscure database trick — it&rsquo;s a direct result of how Postgres aligns data on disk.\n">
+<meta property='og:url' content='http://localhost:1313/blog/optimizing-postgres-table-layout-for-maximum-efficiency/'>
+<meta property='og:site_name' content='Bruno de Barros Ricardo'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Postgres' /><meta property='article:tag' content='SQLite' /><meta property='article:tag' content='MySQL' /><meta property='article:published_time' content='2024-09-15T19:04:35-03:00'/><meta property='article:modified_time' content='2024-09-15T19:04:35-03:00'/><meta property='og:image' content='http://localhost:1313/blog/optimizing-postgres-table-layout-for-maximum-efficiency/cover.webp' />
+<meta name="twitter:title" content="Optimizing Postgres table layout for maximum efficiency">
+<meta name="twitter:description" content="Introduction\rWhen modeling a Postgres database, you probably don&rsquo;t give much thought to the order of columns in your tables. After all, it seems like the kind of thing that wouldn&rsquo;t affect storage or performance. But what if I told you that simply reordering your columns could reduce the size of your tables and indexes by 20%? This isn&rsquo;t some obscure database trick — it&rsquo;s a direct result of how Postgres aligns data on disk.\n"><meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content='http://localhost:1313/blog/optimizing-postgres-table-layout-for-maximum-efficiency/cover.webp' />
+    <link rel="shortcut icon" href="/favicon.png" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu13739649187745961479.png" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Bruno de Barros Ricardo</a></h1>
+            <h2 class="site-description">Things I learned during my runtime.</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/RenatoMassaro'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='mailto:r@ena.to'
+                        target="_blank"
+                        title="Email"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" />
+  <path d="M3 7l9 6l9 -6" />
+</svg>
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>Home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>Home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/about_me/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>About Me</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="http://localhost:1313/" selected>English</option>
+                                
+                                    <option value="http://localhost:1313/pt-br/" >Português</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">Table of contents</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#weighing-a-row">Weighing a row</a></li>
+    <li><a href="#data-alignment">Data Alignment</a>
+      <ol>
+        <li><a href="#visual-representation">Visual representation</a></li>
+        <li><a href="#calculating-alignment-boundaries">Calculating alignment boundaries</a></li>
+        <li><a href="#alignment-applies-to-indexes-too">Alignment applies to indexes, too!</a></li>
+        <li><a href="#what-it-looks-like-in-practice">What it looks like in practice</a></li>
+        <li><a href="#when-to-start-worrying">When to start worrying</a></li>
+        <li><a href="#rule-of-thumb">Rule of thumb</a></li>
+        <li><a href="#a-note-on-toasted-values">A note on TOASTed values</a></li>
+      </ol>
+    </li>
+    <li><a href="#does-this-apply-to-other-databases">Does this apply to other databases?</a>
+      <ol>
+        <li><a href="#sqlite">SQLite</a></li>
+        <li><a href="#mysql">MySQL</a>
+          <ol>
+            <li><a href="#ndb">NDB</a></li>
+            <li><a href="#innodb">InnoDB</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#notes">Notes</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="has-image main-article">
+    <header class="article-header">
+        <div class="article-image">
+            <a href="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/">
+                <img src="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/cover_hu17784599788914226208.webp"
+                        srcset="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/cover_hu17784599788914226208.webp 800w, /blog/optimizing-postgres-table-layout-for-maximum-efficiency/cover_hu13882444287557351277.webp 1600w"
+                        width="800" 
+                        height="800" 
+                        loading="lazy"
+                        alt="Featured image of post Optimizing Postgres table layout for maximum efficiency" />
+                
+            </a>
+        </div>
+    
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/databases/" >
+                Databases
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/">Optimizing Postgres table layout for maximum efficiency</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Sep 15, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    14 minute read
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+        <footer class="article-translations">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+            <div>
+                
+                    <a href="http://localhost:1313/pt-br/blog/otimizando-a-estrutura-de-tabelas-no-postgres-para-m%C3%A1xima-efici%C3%AAncia/" class="link">Português</a>
+                
+            </div>
+        </footer>
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h2 id="introduction">Introduction
+</h2><p>When modeling a Postgres database, you probably don&rsquo;t give much thought to the order of columns in your tables. After all, it seems like the kind of thing that wouldn&rsquo;t affect storage or performance. But what if I told you that simply reordering your columns could reduce the size of your tables and indexes by 20%? This isn&rsquo;t some obscure database trick — it&rsquo;s a direct result of how Postgres aligns data on disk.</p>
+<p>In this post, I&rsquo;ll explore how column alignment works in Postgres, why it matters, and how you can optimize your tables for better efficiency. Through a few real-world examples, you&rsquo;ll see how even small changes in column order can lead to measurable improvements.</p>
+<h2 id="weighing-a-row">Weighing a row
+</h2><p>As a direct result of the <a class="link" href="https://www.postgresql.org/docs/current/storage-page-layout.html#STORAGE-TUPLE-LAYOUT"  target="_blank" rel="noopener"
+    >table row layout</a>, the smallest possible size for a row is 24 bytes.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="k">SELECT</span><span class="w"> </span><span class="n">pg_column_size</span><span class="p">(</span><span class="k">ROW</span><span class="p">());</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">pg_column_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">----------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w">             </span><span class="mi">24</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>Then, for each new column you add to a row, the more space it will take:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="c1">-- One column of type integer: 24 + 4 = 28 bytes
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">SELECT</span><span class="w"> </span><span class="n">pg_column_size</span><span class="p">(</span><span class="k">ROW</span><span class="p">(</span><span class="mi">1</span><span class="p">::</span><span class="nb">int</span><span class="p">));</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">pg_column_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">----------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w">             </span><span class="mi">28</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-- Integer + smallint columns: 24 + 4 + 2 = 30 bytes
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">SELECT</span><span class="w"> </span><span class="n">pg_column_size</span><span class="p">(</span><span class="k">ROW</span><span class="p">(</span><span class="mi">1</span><span class="p">::</span><span class="nb">int</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">::</span><span class="nb">smallint</span><span class="p">));</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">pg_column_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">----------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w">             </span><span class="mi">30</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>So far so good. That&rsquo;s exactly what you&rsquo;d expect: the more data you have in your row, the more space in disk it will use. Disk usage is directly proportional to the data types.</p>
+<p>In other words, if we have one integer column, we expect the row size to be 24 + 4 = 28 bytes. If we have one integer column and one smallint column, we expect the row size to be 24 + 4 + 2 = 30 bytes.</p>
+<p>How can we explain the following output, then?</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="k">SELECT</span><span class="w"> </span><span class="n">pg_column_size</span><span class="p">(</span><span class="k">ROW</span><span class="p">(</span><span class="mi">1</span><span class="p">::</span><span class="nb">smallint</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">::</span><span class="nb">int</span><span class="p">));</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">pg_column_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">----------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w">             </span><span class="mi">32</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>How is this possible?! We <em>just</em> saw that a <code>(integer, smallint)</code> row yields 30 bytes of storage, but a <code>(smallint, integer)</code> row costs 32 bytes of disk space! It happens with other data types, too:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="c1">-- (bigint, boolean) = 24 + 8 + 1 = 33 bytes
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">SELECT</span><span class="w"> </span><span class="n">pg_column_size</span><span class="p">(</span><span class="k">ROW</span><span class="p">(</span><span class="mi">1</span><span class="p">::</span><span class="nb">bigint</span><span class="p">,</span><span class="w"> </span><span class="k">true</span><span class="p">::</span><span class="nb">boolean</span><span class="p">));</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">pg_column_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">----------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w">             </span><span class="mi">33</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-- (boolean, bigint) = 24 + ? + 8 = 40 bytes!?!?
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">SELECT</span><span class="w"> </span><span class="n">pg_column_size</span><span class="p">(</span><span class="k">ROW</span><span class="p">(</span><span class="k">true</span><span class="p">::</span><span class="nb">boolean</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">::</span><span class="nb">bigint</span><span class="p">));</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">pg_column_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">----------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w">             </span><span class="mi">40</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>Rows with <code>(boolean, bigint)</code> structure use 21% more disk space than a <code>(bigint, boolean)</code> row!</p>
+<p>What is going on here?</p>
+<h2 id="data-alignment">Data Alignment
+</h2><p>The answer is <a class="link" href="https://en.wikipedia.org/wiki/Data_structure_alignment"  target="_blank" rel="noopener"
+    ><strong>data alignment</strong></a>.</p>
+<p>Postgres will happily add padding to the underlying data in order to make sure it is properly aligned at the physical layer. Having the data aligned ensures faster access time when processing it. <a class="link" href="#notes" >[0]</a></p>
+<blockquote>
+<p>This is actually a <a class="link" href="https://en.wikipedia.org/wiki/Space%E2%80%93time_tradeoff"  target="_blank" rel="noopener"
+    >space-time tradeoff</a>: we are adding seemingly wasteful space in order to have faster data access.</p>
+</blockquote>
+<h3 id="visual-representation">Visual representation
+</h3><p>Let&rsquo;s try to visualize what the data would look like on disk. Below is a properly-aligned <code>(integer, smallint)</code> row:</p>
+<p><img src="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_1.png"
+	width="710"
+	height="356"
+	srcset="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_1_hu8588515971306457955.png 480w, /blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_1_hu12393775208528255437.png 1024w"
+	loading="lazy"
+	
+		alt="(integer, smallint) = 30 bytes per row"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="199"
+		data-flex-basis="478px"
+	
+></p>
+<p>Contrast it to the misaligned <code>(smallint, integer)</code> row:</p>
+<p><img src="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_2.png"
+	width="687"
+	height="348"
+	srcset="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_2_hu17358260829673272382.png 480w, /blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_2_hu5333542421841964515.png 1024w"
+	loading="lazy"
+	
+		alt="(smallint, integer) = 32 bytes per row"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="197"
+		data-flex-basis="473px"
+	
+></p>
+<p>Notice how Postgres had to pad the <code>smallint</code> column to enforce the necessary alignment of 4 bytes.</p>
+<p>Below is another example, now with <code>(bigint, smallint, boolean)</code> resulting in a row of 35 bytes.</p>
+<p><img src="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_5.png"
+	width="852"
+	height="358"
+	srcset="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_5_hu2648855763955735646.png 480w, /blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_5_hu16443045373977630918.png 1024w"
+	loading="lazy"
+	
+		alt="(bigint, smallint, boolean) = 35 bytes per row"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="237"
+		data-flex-basis="571px"
+	
+></p>
+<p>And the same row, with different order, resulting in 40 bytes per row:</p>
+<p><img src="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_4.png"
+	width="1080"
+	height="454"
+	srcset="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_4_hu16289019807719247674.png 480w, /blog/optimizing-postgres-table-layout-for-maximum-efficiency/example_4_hu5507881336590707772.png 1024w"
+	loading="lazy"
+	
+		alt="(boolean, smallint, bigint) = 40 bytes per row"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="237"
+		data-flex-basis="570px"
+	
+></p>
+<h3 id="calculating-alignment-boundaries">Calculating alignment boundaries
+</h3><p>What determines the alignment used by Postgres? From the <a class="link" href="https://www.postgresql.org/docs/current/catalog-pg-type.html"  target="_blank" rel="noopener"
+    >docs</a>:</p>
+<blockquote>
+    <p><p><code>typalign</code> is the alignment required when storing a value of this type. It applies to storage on disk as well as most representations of the value inside PostgreSQL. When multiple values are stored consecutively, such as in the representation of a complete row on disk, <strong>padding is inserted before a datum of this type so that it begins on the specified boundary</strong>. The alignment reference is the beginning of the first datum in the sequence. Possible values are:</p>
+<ul>
+<li>c = char alignment, i.e., no alignment needed.</li>
+<li>s = short alignment (2 bytes on most machines).</li>
+<li>i = int alignment (4 bytes on most machines).</li>
+<li>d = double alignment (8 bytes on many machines, but by no means all).</li>
+</ul></p></blockquote>
+<p>We can confirm this by querying <code>pg_type</code> directly:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="k">SELECT</span><span class="w"> </span><span class="n">typname</span><span class="p">,</span><span class="w"> </span><span class="n">typalign</span><span class="p">,</span><span class="w"> </span><span class="n">typlen</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">FROM</span><span class="w"> </span><span class="n">pg_type</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">WHERE</span><span class="w"> </span><span class="n">typname</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;int4&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;int2&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;int8&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;bool&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;varchar&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;text&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;float4&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;float8&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;uuid&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;date&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;timestamp&#39;</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="n">typname</span><span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="n">typalign</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">typlen</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-----------+----------+--------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w"> </span><span class="n">bool</span><span class="w">      </span><span class="o">|</span><span class="w"> </span><span class="k">c</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">1</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="nb">int8</span><span class="w">      </span><span class="o">|</span><span class="w"> </span><span class="n">d</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">8</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">int2</span><span class="w">      </span><span class="o">|</span><span class="w"> </span><span class="n">s</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">2</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">int4</span><span class="w">      </span><span class="o">|</span><span class="w"> </span><span class="n">i</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">4</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="nb">text</span><span class="w">      </span><span class="o">|</span><span class="w"> </span><span class="n">i</span><span class="w">        </span><span class="o">|</span><span class="w">     </span><span class="o">-</span><span class="mi">1</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">float4</span><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="n">i</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">4</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">float8</span><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="n">d</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">8</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="nb">varchar</span><span class="w">   </span><span class="o">|</span><span class="w"> </span><span class="n">i</span><span class="w">        </span><span class="o">|</span><span class="w">     </span><span class="o">-</span><span class="mi">1</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="nb">date</span><span class="w">      </span><span class="o">|</span><span class="w"> </span><span class="n">i</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">4</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="k">timestamp</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">d</span><span class="w">        </span><span class="o">|</span><span class="w">      </span><span class="mi">8</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">uuid</span><span class="w">      </span><span class="o">|</span><span class="w"> </span><span class="k">c</span><span class="w">        </span><span class="o">|</span><span class="w">     </span><span class="mi">16</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>You can see, for example, that <code>int8</code> will require an alignment of <code>d</code> (double, or 8 bytes) whereas <code>int4</code> needs half the space.</p>
+<p><code>varchar</code> and <code>text</code> work differently. Even though they have an alignment of <code>i</code>, their <code>typlen</code> is negative. Why is that? Because they have variable size, i.e. they use a <code>varlena</code> structure.</p>
+<p>The fact that these two fields have variable length is not really relevant to alignment, except for the fact that such variable column will be aligned in boundaries of 4 bytes (unless the data is TOASTed, as we&rsquo;ll see below).</p>
+<p>It&rsquo;s also worth pointing out that the <code>uuid</code> type is different. It has a <code>typlen</code> of 16 bytes, but it has <code>c</code> alignment (meaning it needs no prior alignment). As such, you don&rsquo;t need to worry if you have a <code>boolean</code> column right before an <code>uuid</code>, for example.</p>
+<p>In the Postgres codebase you&rsquo;ll find this value being used in the <code>MAXALIGN</code> macro to determine the necessary alignment for fixed-width types.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="n">define</span> <span class="nf">TYPEALIGN</span><span class="p">(</span><span class="n">ALIGNVAL</span><span class="p">,</span><span class="n">LEN</span><span class="p">)</span>  \
+</span></span><span class="line"><span class="cl">	<span class="p">(((</span><span class="kt">uintptr_t</span><span class="p">)</span> <span class="p">(</span><span class="n">LEN</span><span class="p">)</span> <span class="o">+</span> <span class="p">((</span><span class="n">ALIGNVAL</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&amp;</span> <span class="o">~</span><span class="p">((</span><span class="kt">uintptr_t</span><span class="p">)</span> <span class="p">((</span><span class="n">ALIGNVAL</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="cp">#define MAXALIGN(LEN)			TYPEALIGN(MAXIMUM_ALIGNOF, (LEN))
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p>NOTE: the documentation states that <strong>padding is inserted before [&hellip;] this type</strong>. This means that, if we have a structure like <code>(char, int4, char, int8)</code> then we will have 3 bytes of padding before <code>int4</code> and 7 bytes of padding before <code>int8</code>.</p>
+</blockquote>
+<h3 id="alignment-applies-to-indexes-too">Alignment applies to indexes, too!
+</h3><p>What’s often overlooked is that data alignment doesn’t just impact the rows in your tables — it applies to indexes as well. This can be surprising because we typically think of indexes as compact, optimized structures that exist purely to speed up queries. However, Postgres ensures that data in indexes follows the same alignment rules as table rows, which means that misaligned columns can inflate the size of your indexes just as they do with tables.</p>
+<p>This is actually how I originally found out about the importance of data alignment in Postgres. I had an <code>(int8, int8)</code> index, which I restructured to be <code>(int4, int8)</code> to result in a smaller table/index size. Imagine my surprise when I benchmarked and realized the index size did not change at all!</p>
+<p>This is a critical point to take home: <strong>misaligned columns affect your indexes too</strong>, potentially increasing both disk usage and memory consumption. Keeping indexes aligned can therefore have a significant impact on database performance and resource efficiency.</p>
+<h3 id="what-it-looks-like-in-practice">What it looks like in practice
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="c1">-- Let&#39;s create the first table, which has (int4, int8, int4) structure
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">table_1</span><span class="w"> </span><span class="p">(</span><span class="n">int4_1</span><span class="w"> </span><span class="nb">INTEGER</span><span class="p">,</span><span class="w"> </span><span class="n">int8_2</span><span class="w"> </span><span class="nb">BIGINT</span><span class="p">,</span><span class="w"> </span><span class="n">int4_3</span><span class="w"> </span><span class="nb">INTEGER</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">int_4_int_8_int_4</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="n">table_1</span><span class="w"> </span><span class="p">(</span><span class="n">int4_1</span><span class="p">,</span><span class="w"> </span><span class="n">int8_2</span><span class="p">,</span><span class="w"> </span><span class="n">int4_3</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-- The second table has a better alignment: (int4, int4, int8)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">table_2</span><span class="w"> </span><span class="p">(</span><span class="n">int4_1</span><span class="w"> </span><span class="nb">INTEGER</span><span class="p">,</span><span class="w"> </span><span class="n">int4_2</span><span class="w"> </span><span class="nb">INTEGER</span><span class="p">,</span><span class="w"> </span><span class="n">int8_3</span><span class="w"> </span><span class="nb">BIGINT</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">int_4_int_4_int_8</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="n">table_2</span><span class="w"> </span><span class="p">(</span><span class="n">int4_1</span><span class="p">,</span><span class="w"> </span><span class="n">int4_2</span><span class="p">,</span><span class="w"> </span><span class="n">int8_3</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-- Add 10_000_000 entries to each table
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">table_1</span><span class="w"> </span><span class="p">(</span><span class="n">int4_1</span><span class="p">,</span><span class="w"> </span><span class="n">int8_2</span><span class="p">,</span><span class="w"> </span><span class="n">int4_3</span><span class="p">)</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="n">gs</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">int4_1</span><span class="p">,</span><span class="w"> </span><span class="n">gs</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">int8_2</span><span class="p">,</span><span class="w"> </span><span class="n">gs</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">int4_3</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">GENERATE_SERIES</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">10000000</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">gs</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">table_2</span><span class="w"> </span><span class="p">(</span><span class="n">int4_1</span><span class="p">,</span><span class="w"> </span><span class="n">int4_2</span><span class="p">,</span><span class="w"> </span><span class="n">int8_3</span><span class="p">)</span><span class="w"> </span><span class="k">SELECT</span><span class="w"> </span><span class="n">gs</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">int4_1</span><span class="p">,</span><span class="w"> </span><span class="n">gs</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">int4_2</span><span class="p">,</span><span class="w"> </span><span class="n">gs</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">int8_3</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">GENERATE_SERIES</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">10000000</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">gs</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-- The first table uses more disk space than the second one
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">SELECT</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_relation_size</span><span class="p">(</span><span class="s1">&#39;table_1&#39;</span><span class="p">))</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">table_1_size</span><span class="p">,</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_relation_size</span><span class="p">(</span><span class="s1">&#39;table_2&#39;</span><span class="p">))</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">table_2_size</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">table_1_size</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">table_2_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">--------------+--------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w"> </span><span class="mi">498</span><span class="w"> </span><span class="n">MB</span><span class="w">       </span><span class="o">|</span><span class="w"> </span><span class="mi">422</span><span class="w"> </span><span class="n">MB</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-- The first index uses more disk (and memory) than the second one
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">SELECT</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="n">indexrelid</span><span class="p">::</span><span class="n">regclass</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">index_name</span><span class="p">,</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_relation_size</span><span class="p">(</span><span class="n">indexrelid</span><span class="p">::</span><span class="n">regclass</span><span class="p">))</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">index_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="k">FROM</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="n">pg_stat_user_indexes</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="n">index_name</span><span class="w">     </span><span class="o">|</span><span class="w"> </span><span class="n">index_size</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">-------------------+------------
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="w"> </span><span class="n">int_4_int_8_int_4</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="mi">386</span><span class="w"> </span><span class="n">MB</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"> </span><span class="n">int_4_int_4_int_8</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="mi">300</span><span class="w"> </span><span class="n">MB</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>For a single table, with only one misaligned datum, the properly aligned table uses 76 less megabytes (a 15% improvement), and the properly aligned index uses 86 less megabytes (a 22% improvement).</p>
+<p>These experimental tables have 10 million entries, which is a small number for real-world databases. Imagine the level of improvement one may find on those databases!</p>
+<blockquote>
+    <p><p>NOTE: It&rsquo;s important to mention that the benefits of a properly aligned table are not exclusive to storage. It will likely lead to <strong>performance gains</strong>, too.</p>
+<p>It&rsquo;s intuitively easy to understand why that&rsquo;s the case. With a better data alignment, your rows will be smaller. With smaller rows, you will fit more rows per page. With tightly packed pages:</p>
+<ol>
+<li>Potentially fewer pages need to be retrieved from disk.</li>
+<li>Postgres can fit more rows in memory (i.e. more rows for the same number of cached pages)</li>
+</ol>
+</p></blockquote>
+<p>I don&rsquo;t have the time to measure how much performance would be improved, but I believe the potential performance gains are non-negligible.</p>
+<h3 id="when-to-start-worrying">When to start worrying
+</h3><p>Friends don&rsquo;t let friends create misaligned tables. But you don&rsquo;t necessarily want to become the alignment police in your company&rsquo;s PR reviews!</p>
+<p><img src="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/data_alignment_police.webp"
+	width="600"
+	height="600"
+	srcset="/blog/optimizing-postgres-table-layout-for-maximum-efficiency/data_alignment_police_hu14090633319460890224.webp 480w, /blog/optimizing-postgres-table-layout-for-maximum-efficiency/data_alignment_police_hu15204283844245078670.webp 1024w"
+	loading="lazy"
+	
+		alt="You have the right to remain aligned"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="100"
+		data-flex-basis="240px"
+	
+></p>
+<p>Startups, specially early-stage ones, often have a frenetic development process, and saving 10-20% of disk space is usually not a top priority. Quite often, these savings are absolutely irrelevant at this stage. So, when should your team worry about table alignment?</p>
+<p>The right answer depends heavily on the context behind your product, but eventually you will notice dramatic infrastructure-related costs (specific to your databases) and maybe that&rsquo;s a good starting point.</p>
+<p>However, I hold the opinion that a competent software engineer should always keep this fact in mind and, whenever possible, make adjustments while developing features. No need to fret over it, but try to keep your tables aligned from early on.</p>
+<p>This will significantly save <em>time</em> in the future. Refactoring your data model is not easy. It&rsquo;s not only a matter of reordering your table columns, but your indexes too (which also means reordering your query pattern at the application layer).</p>
+<p>In fact, for early-stage startups, <strong>my recommendation is to always keep an eye on how well-aligned your <em>indexes</em> are</strong>. You can reorder the actual table columns later on, but pay close attention to your indexes. I think this is a good recommendation because:</p>
+<ol>
+<li>As mentioned above, indexes are hard to reorder. You&rsquo;d need to make sure the access pattern is reordered too, since a query on <code>(a, b)</code> will not use an index on <code>(b, a)</code>.</li>
+<li>It is easy to change the order of indexes during development, since they are added individually and don&rsquo;t depend on previous migrations.</li>
+<li>Changing the order of columns during development is hard, though, because they often build upon previous migrations.</li>
+<li>Refactoring the data model to reorder table columns, while not trivial, does not need application-level changes (unless you are doing something fringe), so it can be postponed to a later stage.</li>
+</ol>
+<h3 id="rule-of-thumb">Rule of thumb
+</h3><p>A generic rule of thumb I&rsquo;ve been using for the past few years is to, whenever possible, define columns based on a descending order of data types size.</p>
+<p>In other words: start with larger data types like <code>int8</code>, <code>float8</code> and <code>timestamp</code>, and place smaller types at the end. This will naturally align your table.</p>
+<p>Keep in mind this is an &ldquo;all else being equal&rdquo; kind of rule. Other factors, like cardinality or even readability, may have higher priority than data alignment, especially when it comes to indexes.</p>
+<h3 id="a-note-on-toasted-values">A note on TOASTed values
+</h3><p>Some data types have variable length and their value may be stored elsewhere if it gets too big to the point that a row would not fit in a single page. When this happens, we say the value is TOASTed. In this scenario, the row will contain a pointer to the underlying data.</p>
+<p>Different types of pointer may exist depending on the size of the data. For single-byte pointers, no alignment is necessary, whereas a 4-byte alignment is applied to 4-byte pointers. From the <a class="link" href="https://www.postgresql.org/docs/current/storage-toast.html"  target="_blank" rel="noopener"
+    >docs</a>:</p>
+<blockquote>
+    <p>Values with single-byte headers aren&rsquo;t aligned on any particular boundary, whereas values with four-byte headers are aligned on at least a four-byte boundary; this omission of alignment padding provides additional space savings that is significant compared to short values.</p></blockquote>
+<h2 id="does-this-apply-to-other-databases">Does this apply to other databases?
+</h2><p>Do we need to consider data alignment when working with databases other than Postgres? Here&rsquo;s what I found out:</p>
+<h3 id="sqlite">SQLite
+</h3><p>No. Here&rsquo;s a <a class="link" href="https://sqlite.org/forum/info/5e030d06c5b32ab5y"  target="_blank" rel="noopener"
+    >quote from Richard Hipp</a>:</p>
+<blockquote>
+    <p><p>SQLite does not pad or align columns within a row. Everything is tightly packed together using minimal space. Two consequences of this design:</p>
+<ol>
+<li>SQLite has to work harder (use more CPU cycles) to access data within a row once it has that row in memory.</li>
+<li>SQLite uses fewer bytes on disk, less memory, and spends less time moving content around because there are fewer bytes to move.</li>
+</ol>
+<p>We believe that the benefit of #2 outweighs the disadvantage of #1, especially on modern hardware in which #1 is operating out of L1 cache whereas #2 is using main-memory transfers. But your mileage may vary depending on what you store in the database file.</p>
+</p><span class="cite"><span>― </span><a href="https://sqlite.org/forum/info/5e030d06c5b32ab5y"><cite>drh</cite></a></span></blockquote>
+<p>For those familiar with the SQLite architecture, I&rsquo;d say this is not surprising and well in-line with the SQLite philosophy.</p>
+<h3 id="mysql">MySQL
+</h3><p>MySQL is not my forte, so you will want to dive deeper to corroborate my findings. I&rsquo;m only quoting the docs and adding a few thoughts of my own, which I have not verified. You can use the links below as a starting point for your own research.</p>
+<h4 id="ndb">NDB
+</h4><p>From <a class="link" href="https://dev.mysql.com/doc/refman/8.4/en/storage-requirements.html#data-types-storage-reqs-ndb"  target="_blank" rel="noopener"
+    >the docs</a>:</p>
+<blockquote>
+    <p>NDB tables use 4-byte alignment; all NDB data storage is done in multiples of 4 bytes. Thus, a column value that would typically take 15 bytes requires 16 bytes in an NDB table. For example, in NDB tables, the TINYINT, SMALLINT, MEDIUMINT, and INTEGER (INT) column types each require 4 bytes storage per record due to the alignment factor.</p></blockquote>
+<p>Based on the above, I believe padding would be added to columns smaller than 4 bytes.</p>
+<h4 id="innodb">InnoDB
+</h4><p>I failed to see a mention of alignment and padding in <a class="link" href="https://dev.mysql.com/doc/refman/8.4/en/innodb-storage-engine.html"  target="_blank" rel="noopener"
+    >chapter 17 of the MySQL docs</a>, except maybe for this bit:</p>
+<blockquote>
+<p>[<code>innodb_compression_failure_threshold_pct</code>] [d]efines the compression failure rate threshold for a table, as a percentage, at which point MySQL begins adding padding within compressed pages to avoid expensive compression failures.</p>
+</blockquote>
+<p>Not helpful. It hints to padding at the page level, but we want to know if the columns are individually padded. Well, MySQL is Oracle-open-sourced, so we can look at the code to try to get some hints. Here&rsquo;s an interesting bit from <a class="link" href="https://github.com/mysql/mysql-server/blob/596f0d238489a9cf9f43ce1ff905984f58d227b6/storage/innobase/row/row0mysql.cc#L339"  target="_blank" rel="noopener"
+    >storage/innobase/row/row0mysql.cc</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cm">/** Pad a column with spaces.
+</span></span></span><span class="line"><span class="cl"><span class="cm">@param[in] mbminlen Minimum size of a character, in bytes
+</span></span></span><span class="line"><span class="cl"><span class="cm">@param[out] pad Padded buffer
+</span></span></span><span class="line"><span class="cl"><span class="cm">@param[in] len Number of bytes to pad */</span>
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">row_mysql_pad_col</span><span class="p">(</span><span class="n">ulint</span> <span class="n">mbminlen</span><span class="p">,</span> <span class="n">byte</span> <span class="o">*</span><span class="n">pad</span><span class="p">,</span> <span class="n">ulint</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="k">const</span> <span class="n">byte</span> <span class="o">*</span><span class="n">pad_end</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="k">switch</span> <span class="p">(</span><span class="n">UNIV_EXPECT</span><span class="p">(</span><span class="n">mbminlen</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">default</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">ut_error</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">case</span> <span class="mi">1</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">      <span class="cm">/* space=0x20 */</span>
+</span></span><span class="line"><span class="cl">      <span class="n">memset</span><span class="p">(</span><span class="n">pad</span><span class="p">,</span> <span class="mh">0x20</span><span class="p">,</span> <span class="n">len</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">case</span> <span class="mi">2</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">      <span class="cm">/* space=0x0020 */</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pad_end</span> <span class="o">=</span> <span class="n">pad</span> <span class="o">+</span> <span class="n">len</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">ut_a</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">len</span> <span class="o">%</span> <span class="mi">2</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">      <span class="k">while</span> <span class="p">(</span><span class="n">pad</span> <span class="o">&lt;</span> <span class="n">pad_end</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="o">*</span><span class="n">pad</span><span class="o">++</span> <span class="o">=</span> <span class="mh">0x00</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="o">*</span><span class="n">pad</span><span class="o">++</span> <span class="o">=</span> <span class="mh">0x20</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">};</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">case</span> <span class="mi">4</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">      <span class="cm">/* space=0x00000020 */</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pad_end</span> <span class="o">=</span> <span class="n">pad</span> <span class="o">+</span> <span class="n">len</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">ut_a</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">len</span> <span class="o">%</span> <span class="mi">4</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">      <span class="k">while</span> <span class="p">(</span><span class="n">pad</span> <span class="o">&lt;</span> <span class="n">pad_end</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="o">*</span><span class="n">pad</span><span class="o">++</span> <span class="o">=</span> <span class="mh">0x00</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="o">*</span><span class="n">pad</span><span class="o">++</span> <span class="o">=</span> <span class="mh">0x00</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="o">*</span><span class="n">pad</span><span class="o">++</span> <span class="o">=</span> <span class="mh">0x00</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="o">*</span><span class="n">pad</span><span class="o">++</span> <span class="o">=</span> <span class="mh">0x20</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Okay, clearly something, somewhere is padding columns in the InnoDB storage engine. However, when I grep the MySQL codebase for users of this function, I get the impression it&rsquo;s used only in some special cases (instead of always checking for alignment and padding if necessary, as the Postgres codebase does). For example, it seems it&rsquo;s used only for padding fixed-length CHAR columns (see usage at <a class="link" href="https://github.com/mysql/mysql-server/blob/596f0d238489a9cf9f43ce1ff905984f58d227b6/storage/innobase/row/row0ins.cc#L587"  target="_blank" rel="noopener"
+    >row0ins.cc</a>).</p>
+<p>In any case, I urge the reader to try the snippet at the &ldquo;<a class="link" href="#what-it-looks-like-in-practice" >What it looks like in practice</a>&rdquo; section in MySQL and analyze the results. Something tells me that misaligned tables will not be as big of an issue in MySQL as they are with Postgres.</p>
+<hr>
+<p>Read the <a class="link" href="https://news.ycombinator.com/item?id=41757940"  target="_blank" rel="noopener"
+    >discussion on Hacker News</a>.</p>
+<h2 id="notes">Notes
+</h2><p>[0] - This originally read &ldquo;when retrieving pages from disk&rdquo;. As <a class="link" href="https://news.ycombinator.com/item?id=41774123"  target="_blank" rel="noopener"
+    >branko_d pointed out on Hacker News</a>, this may be misleading: the speed-up from proper alignment occurs when <em>processing</em> the data after it&rsquo;s been retrieved, not when retrieving it <em>from disk</em>. This is a subtle but important distinction worth emphasizing. <a class="link" href="#data-alignment" >^</a></p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/postgres/">Postgres</a>
+        
+            <a href="/tags/sqlite/">SQLite</a>
+        
+            <a href="/tags/mysql/">MySQL</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2020 - 
+        
+        2025 Bruno de Barros Ricardo
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.29.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.4a1d2692ff5cec068ceaa9d7bcc8a4d28aadfd28b604c06c87dcb493ea180e83.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

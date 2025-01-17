@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="This quick post highlights three common mistakes I often see with Repo.transaction. At the end, I’ve included a suggestion to help you and your team avoid these pitfalls.\nGotcha 1: It may commit when you don&rsquo;t expect it to\rThis one is a big deal and so easy to miss: Repo.transaction/2 will always commit, except when:\nAn exception is raised; or Repo.rollback/1 is called. This is clearly stated in the docs:\n">
+<title>Common pitfalls with Repo.transaction in Elixir</title>
+
+<link rel='canonical' href='http://localhost:1313/blog/common-pitfalls-with-repo.transaction-in-elixir/'>
+
+<link rel="stylesheet" href="/scss/style.min.b9c8156d464c343bdacaf14a871581fb94cbbdb9dd5cbce4ba017361187cc930.css"><meta property='og:title' content="Common pitfalls with Repo.transaction in Elixir">
+<meta property='og:description' content="This quick post highlights three common mistakes I often see with Repo.transaction. At the end, I’ve included a suggestion to help you and your team avoid these pitfalls.\nGotcha 1: It may commit when you don&rsquo;t expect it to\rThis one is a big deal and so easy to miss: Repo.transaction/2 will always commit, except when:\nAn exception is raised; or Repo.rollback/1 is called. This is clearly stated in the docs:\n">
+<meta property='og:url' content='http://localhost:1313/blog/common-pitfalls-with-repo.transaction-in-elixir/'>
+<meta property='og:site_name' content='Bruno de Barros Ricardo'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Elixir' /><meta property='article:tag' content='Ecto' /><meta property='article:published_time' content='2024-11-24T20:09:31-03:00'/><meta property='article:modified_time' content='2024-11-24T20:09:31-03:00'/><meta property='og:image' content='http://localhost:1313/blog/common-pitfalls-with-repo.transaction-in-elixir/cover.webp' />
+<meta name="twitter:title" content="Common pitfalls with Repo.transaction in Elixir">
+<meta name="twitter:description" content="This quick post highlights three common mistakes I often see with Repo.transaction. At the end, I’ve included a suggestion to help you and your team avoid these pitfalls.\nGotcha 1: It may commit when you don&rsquo;t expect it to\rThis one is a big deal and so easy to miss: Repo.transaction/2 will always commit, except when:\nAn exception is raised; or Repo.rollback/1 is called. This is clearly stated in the docs:\n"><meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content='http://localhost:1313/blog/common-pitfalls-with-repo.transaction-in-elixir/cover.webp' />
+    <link rel="shortcut icon" href="/favicon.png" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="Toggle Menu">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu13739649187745961479.png" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Bruno de Barros Ricardo</a></h1>
+            <h2 class="site-description">Things I learned during my runtime.</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/RenatoMassaro'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='mailto:r@ena.to'
+                        target="_blank"
+                        title="Email"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" />
+  <path d="M3 7l9 6l9 -6" />
+</svg>
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>Home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>Home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/about_me/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>About Me</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/blog/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="http://localhost:1313/" selected>English</option>
+                                
+                                    <option value="http://localhost:1313/pt-br/" >Português</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>Dark Mode</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">Table of contents</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#gotcha-1-it-may-commit-when-you-dont-expect-it-to">Gotcha 1: It may commit when you don&rsquo;t expect it to</a>
+      <ol>
+        <li><a href="#examples">Examples</a>
+          <ol>
+            <li><a href="#make-sure-all-branches-are-covered">Make sure <em>all</em> branches are covered</a></li>
+            <li><a href="#experimenting-locally">Experimenting locally</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#gotcha-2-it-may-not-return-what-you-are-expecting">Gotcha 2: It may not return what you are expecting</a></li>
+    <li><a href="#gotcha-3-transactions-are-per-process">Gotcha 3: Transactions are per-process</a></li>
+    <li><a href="#avoiding-these-gotchas-from-hitting-prod">Avoiding these gotchas from hitting prod</a>
+      <ol>
+        <li><a href="#multi-an-interesting-alternative">Multi: an interesting alternative</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="has-image main-article">
+    <header class="article-header">
+        <div class="article-image">
+            <a href="/blog/common-pitfalls-with-repo.transaction-in-elixir/">
+                <img src="/blog/common-pitfalls-with-repo.transaction-in-elixir/cover_hu12086422774460443652.webp"
+                        srcset="/blog/common-pitfalls-with-repo.transaction-in-elixir/cover_hu12086422774460443652.webp 800w, /blog/common-pitfalls-with-repo.transaction-in-elixir/cover_hu2397999392260314219.webp 1600w"
+                        width="800" 
+                        height="800" 
+                        loading="lazy"
+                        alt="Featured image of post Common pitfalls with Repo.transaction in Elixir" />
+                
+            </a>
+        </div>
+    
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/programming/" >
+                Programming
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/blog/common-pitfalls-with-repo.transaction-in-elixir/">Common pitfalls with Repo.transaction in Elixir</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Nov 24, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    6 minute read
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>This quick post highlights three common mistakes I often see with <code>Repo.transaction</code>. At the end, I’ve included a suggestion to help you and your team avoid these pitfalls.</p>
+<h2 id="gotcha-1-it-may-commit-when-you-dont-expect-it-to">Gotcha 1: It may commit when you don&rsquo;t expect it to
+</h2><p>This one is a big deal and so easy to miss: <code>Repo.transaction/2</code> will <strong>always</strong> commit, except when:</p>
+<ul>
+<li>An exception is raised; or</li>
+<li><code>Repo.rollback/1</code> is called.</li>
+</ul>
+<p>This is clearly stated in the <a class="link" href="https://hexdocs.pm/ecto/Ecto.Repo.html#c:transaction/2"  target="_blank" rel="noopener"
+    >docs</a>:</p>
+<blockquote>
+<p>If an Elixir exception occurs the transaction will be rolled back and the exception will bubble up from the transaction function. If no exception occurs, the transaction is committed when the function returns. A transaction can be explicitly rolled back by calling <code>rollback/1</code>.</p>
+</blockquote>
+<p>And yet, it&rsquo;s surprisingly easy to overlook. I have missed it in the past and every now and then I spot this during code review, too.</p>
+<h3 id="examples">Examples
+</h3><p>In the examples below, imagine <code>update_settings/2</code> returned an error tuple generated in the application layer. The block <em>will</em> commit and the changes made by <code>update_user/1</code> will persist even though <code>update_settings/2</code> has failed.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-elixir" data-lang="elixir"><span class="line"><span class="cl"><span class="c1"># Example 1:</span>
+</span></span><span class="line"><span class="cl"><span class="nc">Repo</span><span class="o">.</span><span class="n">transaction</span><span class="p">(</span><span class="k">fn</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">with</span> <span class="p">{</span><span class="ss">:ok</span><span class="p">,</span> <span class="n">user</span><span class="p">}</span> <span class="o">&lt;-</span> <span class="n">update_user</span><span class="p">(</span><span class="n">user_params</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">       <span class="p">{</span><span class="ss">:ok</span><span class="p">,</span> <span class="n">settings</span><span class="p">}</span> <span class="o">&lt;-</span> <span class="n">update_settings</span><span class="p">(</span><span class="n">user</span><span class="p">,</span> <span class="n">settings_param</span><span class="p">)</span> <span class="k">do</span>
+</span></span><span class="line"><span class="cl">    <span class="p">%{</span><span class="ss">user</span><span class="p">:</span> <span class="n">user</span><span class="p">,</span> <span class="ss">settings</span><span class="p">:</span> <span class="n">settings</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="k">end</span>
+</span></span><span class="line"><span class="cl"><span class="k">end</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Example 2:</span>
+</span></span><span class="line"><span class="cl"><span class="nc">Repo</span><span class="o">.</span><span class="n">transaction</span><span class="p">(</span><span class="k">fn</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span><span class="ss">:ok</span><span class="p">,</span> <span class="n">user</span><span class="p">}</span> <span class="o">=</span> <span class="n">update_user</span><span class="p">(</span><span class="n">user_params</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="k">case</span> <span class="n">update_settings</span><span class="p">(</span><span class="n">user</span><span class="p">,</span> <span class="n">settings_param</span><span class="p">)</span> <span class="k">do</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="ss">:ok</span><span class="p">,</span> <span class="n">settings</span><span class="p">}</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">settings</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="ss">:error</span><span class="p">,</span> <span class="n">reason</span><span class="p">}</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">      <span class="nc">Logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&#34;Failed to update settings: </span><span class="si">#{</span><span class="n">inspect</span> <span class="n">reason</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="ss">:error</span><span class="p">,</span> <span class="n">reason</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="k">end</span>
+</span></span><span class="line"><span class="cl"><span class="k">end</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>For the example above, we are considering the error tuple was generated in the <em>application layer</em>. This means that the request never actually hit the database. As an example, maybe the Ecto changeset validations failed.</p>
+<p>If there was an actual error from the database (say, due to a failed constraint check), then Ecto will rollback and raise an exception when another database operation is performed within the same transaction.</p>
+<h4 id="make-sure-all-branches-are-covered">Make sure <em>all</em> branches are covered
+</h4><p>In the example below, we do call <code>Ecto.rollback/1</code>, but there is at least one code path where <code>Ecto.rollback</code> is not called even though database operations were performed.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-elixir" data-lang="elixir"><span class="line"><span class="cl"><span class="nc">Repo</span><span class="o">.</span><span class="n">transaction</span><span class="p">(</span><span class="k">fn</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">with</span> <span class="p">{</span><span class="ss">:ok</span><span class="p">,</span> <span class="n">user</span><span class="p">}</span> <span class="o">&lt;-</span> <span class="n">update_user</span><span class="p">(</span><span class="n">user_params</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">       <span class="c1"># Suppose `has_permission_to_update_settings?/1` returned false</span>
+</span></span><span class="line"><span class="cl">       <span class="no">true</span> <span class="o">&lt;-</span> <span class="n">has_permission_to_update_settings?</span><span class="p">(</span><span class="n">user</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">       <span class="p">{</span><span class="ss">:ok</span><span class="p">,</span> <span class="n">settings</span><span class="p">}</span> <span class="o">&lt;-</span> <span class="n">update_settings</span><span class="p">(</span><span class="n">user</span><span class="p">,</span> <span class="n">settings_param</span><span class="p">)</span> <span class="k">do</span>
+</span></span><span class="line"><span class="cl">    <span class="p">%{</span><span class="ss">user</span><span class="p">:</span> <span class="n">user</span><span class="p">,</span> <span class="ss">settings</span><span class="p">:</span> <span class="n">settings</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="ss">:error</span><span class="p">,</span> <span class="n">reason</span><span class="p">}</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">      <span class="nc">Ecto</span><span class="o">.</span><span class="n">rollback</span><span class="p">(</span><span class="n">reason</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="no">false</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">      <span class="c1"># Code that reaches this branch never rolls back!</span>
+</span></span><span class="line"><span class="cl">      <span class="nc">Logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&#34;User does not have permission to update settings&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span><span class="ss">:error</span><span class="p">,</span> <span class="ss">:no_permissions</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="k">end</span>
+</span></span><span class="line"><span class="cl"><span class="k">end</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="experimenting-locally">Experimenting locally
+</h4><p>Curious about whether something commits? Open an IEx shell with access to a <code>Repo</code> and try the following:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">iex(1)&gt; Logger.configure(level: :debug)
+</span></span><span class="line"><span class="cl">:ok
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">iex(2)&gt; Repo.transaction(fn -&gt; :error end)
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.4ms idle=1939.9ms
+</span></span><span class="line"><span class="cl">begin []
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.2ms
+</span></span><span class="line"><span class="cl">commit []
+</span></span><span class="line"><span class="cl">{:ok, :error}
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">iex(3)&gt; Repo.transaction(fn -&gt; Repo.rollback(:error_updating_settings) end)
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.4ms idle=1795.7ms
+</span></span><span class="line"><span class="cl">begin []
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.2ms
+</span></span><span class="line"><span class="cl">rollback []
+</span></span><span class="line"><span class="cl">{:error, :error_updating_settings}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>By executing the command with the <code>:debug</code> Logger level enabled, you&rsquo;ll see every query Ecto makes, including the commits/rollbacks. For a more accurate example, perform actual database operations &ndash; as mentioned above, errors at the database layer will change the outcome of the function.</p>
+<h2 id="gotcha-2-it-may-not-return-what-you-are-expecting">Gotcha 2: It may not return what you are expecting
+</h2><p>Both <code>Repo.transaction/2</code> and <code>Repo.rollback/1</code> have a slightly counterintuitive return type: it wraps the return type of the function into an <code>:ok</code> or <code>:error</code> tuple:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">iex(1)&gt; Repo.transaction(fn -&gt; :it_commits end)
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.3ms idle=1941.2ms
+</span></span><span class="line"><span class="cl">begin []
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.2ms
+</span></span><span class="line"><span class="cl">commit []
+</span></span><span class="line"><span class="cl">{:ok, :it_commits}
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">iex(2)&gt; Repo.transaction(fn -&gt; Repo.rollback(:rollback) end)
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.4ms idle=1937.4ms
+</span></span><span class="line"><span class="cl">begin []
+</span></span><span class="line"><span class="cl">[debug] QUERY OK db=0.2ms
+</span></span><span class="line"><span class="cl">rollback []
+</span></span><span class="line"><span class="cl">{:error, :rollback}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>This is less likely to go unnoticed because developers usually identify and adjust the return value during testing (manual or automatic).</p>
+<p>It&rsquo;s worth pointing out this is also clearly stated in the docs:</p>
+<blockquote>
+<p><strong>Repo.transaction/2</strong>: A successful transaction returns the value returned by the function wrapped in a tuple as <code>{:ok, value}</code>.<br/><br/>
+<strong>Repo.rollback/1</strong>: The transaction will return the value given as <code>{:error, value}</code>.</p>
+</blockquote>
+<h2 id="gotcha-3-transactions-are-per-process">Gotcha 3: Transactions are per-process
+</h2><p>From the <a class="link" href="https://hexdocs.pm/ecto/Ecto.Repo.html#c:transaction/2-working-with-processes"  target="_blank" rel="noopener"
+    >docs</a>:</p>
+<blockquote>
+<p>The transaction is per process. A separate process started inside a transaction won&rsquo;t be part of the same transaction and will use a separate connection altogether.</p>
+</blockquote>
+<p>This is a substantially less common gotcha, since most of the time when handling web requests we only need the one process serving the user. However, precisely <em>because</em> it&rsquo;s less common, this is particularly easy to miss when the exception does happen! So watch out if you are starting Tasks or hitting GenServers that perform database operations from their respective processes while wrapped in a transaction.</p>
+<h2 id="avoiding-these-gotchas-from-hitting-prod">Avoiding these gotchas from hitting prod
+</h2><p>There really are only two ways: code reviews and tests.</p>
+<p>It&rsquo;s not the purpose of this post to convince you or your company to adopt best practices &ndash; but if you aren&rsquo;t doing code review or testing, I highly recommend you start doing so.</p>
+<h3 id="multi-an-interesting-alternative">Multi: an interesting alternative
+</h3><p>Ecto provides <a class="link" href="https://hexdocs.pm/ecto/Ecto.Multi.html"  target="_blank" rel="noopener"
+    >Multi</a>, a &ldquo;data structure for grouping multiple Repo operations&rdquo; in its own words.</p>
+<p>I have found Multi to have several advantages over passing a function to <code>Repo.transaction/2</code>, but for the scope of this post I&rsquo;d like to focus on one: safety.</p>
+<p>Because Multi uses pipes as first-class citizen, any time an error tuple (or unexpected return) shows up, the logic short-circuits to the <code>Repo.rollback/1</code> call, which is done automatically by Multi. In that sense, it&rsquo;s actually quite similar to a <code>with</code> block.</p>
+<p>This is what our earlier examples would look like using Multi:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-elixir" data-lang="elixir"><span class="line"><span class="cl"><span class="nc">Multi</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="o">|&gt;</span> <span class="nc">Multi</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="ss">:update_user</span><span class="p">,</span> <span class="k">fn</span> <span class="n">_repo</span><span class="p">,</span> <span class="n">_changes</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">update_user</span><span class="p">(</span><span class="n">user_params</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">end</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">|&gt;</span> <span class="nc">Multi</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="ss">:update_settings</span><span class="p">,</span> <span class="k">fn</span> <span class="n">_repo</span><span class="p">,</span> <span class="p">%{</span><span class="ss">update_user</span><span class="p">:</span> <span class="n">user</span><span class="p">}</span> <span class="o">-&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">update_settings</span><span class="p">(</span><span class="n">user</span><span class="p">,</span> <span class="n">settings_param</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">end</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">|&gt;</span> <span class="nc">Repo</span><span class="o">.</span><span class="n">transaction</span><span class="p">()</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Notice that the example above is inherently safe. If any operation returns an error tuple, it will go straight to the end. If an unexpected result is returned by the functions (say, <code>nil</code> instead of an ok/error tuple), an exception is raised. It&rsquo;s substantially harder (or outright impossible) to hit gotchas #1 and #2. Naturally, gotcha #3 still applies to Multi.</p>
+<p>If you never used Multi, adopting it may be difficult. It has an unfamiliar syntax. I, too, had a similar objection when I first saw it. After 1 year of reluctance, I tried it. The first couple of weeks were difficult, but once it &ldquo;clicked&rdquo; I really started using it everywhere. The thing is, it will only &ldquo;click&rdquo; for you if you start actually using it.</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/elixir/">Elixir</a>
+        
+            <a href="/tags/ecto/">Ecto</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">Related content</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="has-image">
+    <a href="/blog/avoiding-recompilation-hell-in-elixir-with-mix-xref/">
+        
+        
+            <div class="article-image">
+                <img src="/blog/avoiding-recompilation-hell-in-elixir-with-mix-xref/cover.1b37da57a36fcf63bf81d994e4e3b6f4_hu10625868011195629204.webp" 
+                        width="250" 
+                        height="150" 
+                        loading="lazy"
+                        alt="Featured image of post Avoiding recompilation hell in Elixir with mix xref"
+                        
+                        data-hash="md5-GzfaV6Nvz2O/gdmU5OO29A==">
+                
+            </div>
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Avoiding recompilation hell in Elixir with mix xref</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2020 - 
+        
+        2025 Bruno de Barros Ricardo
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.29.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.4a1d2692ff5cec068ceaa9d7bcc8a4d28aadfd28b604c06c87dcb493ea180e83.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>
